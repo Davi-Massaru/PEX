@@ -1,0 +1,28 @@
+FROM ubuntu:latest AS builder
+
+RUN apt-get update && apt-get install -y wget unzip && \
+    wget https://download.java.net/openjdk/jdk23/ri/openjdk-23+37_linux-x64_bin.tar.gz && \
+    tar -xvf openjdk-23+37_linux-x64_bin.tar.gz -C /usr/local && \
+    mv /usr/local/jdk-23 /usr/local/openjdk-23 && \
+    rm openjdk-23+37_linux-x64_bin.tar.gz
+
+ENV JAVA_HOME=/usr/local/openjdk-23
+ENV PATH="$JAVA_HOME/bin:$PATH"
+
+ARG APP_HOME=/tmp/app
+COPY pex-sample $APP_HOME/pex-sample
+
+COPY --from=intersystemsdc/jgw:latest /jgw/*.jar $APP_HOME/jgw/
+
+WORKDIR $APP_HOME/pex-sample/
+
+RUN chmod +x mvnw
+
+RUN ./mvnw clean install
+RUN ./mvnw clean package -DskipTests
+
+FROM intersystemsdc/jgw:latest
+
+COPY --from=builder /tmp/app/pex-sample/target/pex-sample-latest.jar $GWDIR/
+
+#CMD ["java", "-jar", "/jgw/pex-sample-latest.jar"]
